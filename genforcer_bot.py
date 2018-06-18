@@ -3,16 +3,28 @@ import datetime
 import json
 import logging
 from pathlib import Path
+import re
 
 import discord
 from discord.ext import commands
 
+help_str = "GENFORCER HELP:\n" \
+           "The Genforcer will remove any messages that have non-g alphanumeric (a-z,0-9) characters or more than 25% special characters in \"the-g-channel\"\n" \
+           "The Genforcer will always delete your message upon recieving your command.\n" \
+           "COMMANDS:\n" \
+           "`!g suppress <seconds>` suppresses the Genforcer for a time\n" \
+           "`!g gbinary <text>` converts your text to binary\n" \
+           "`!g help` DMs you this"
 
+"""
+Original credit SourSpoon (base discord bot template)
+"""
 def config_load():
     with open('data/config.json', 'r', encoding='utf-8') as doc:
         #  Please make sure encoding is correct, especially after editing the config file
         return json.load(doc)
 
+config = config_load()
 
 async def run():
     """
@@ -20,7 +32,6 @@ async def run():
     it's recommended that you create it here and pass it to the bot as a kwarg.
     """
 
-    config = config_load()
     bot = Bot(config=config,
               description=config['description'])
     try:
@@ -37,6 +48,8 @@ class Bot(commands.Bot):
         )
         self.start_time = None
         self.app_info = None
+
+        self.suppressed_until = datetime.datetime.now()
 
         self.loop.create_task(self.track_start())
         self.loop.create_task(self.load_all_extensions())
@@ -86,15 +99,52 @@ class Bot(commands.Bot):
               f'Template Maker: SourSpoon / Spoon#7805')
         print('-' * 10)
 
+    async def process_commands(self, message):
+        if message.content.lower().lstrip().startswith("!g "):
+            await self.delete_message(message) # Do this first in case there's an exception
+            fragments = message.content.lower().lstrip().split(" ")
+            if fragments[1] == "suppress":
+                if fragments[2]:
+                    s = int(fragments[2])
+                    self.suppressed_until = datetime.datetime.now() + datetime.timedelta(seconds=s)
+            if fragments[1] == "gbinary":
+                sbuild = ""
+                for fragment in fragments[2:]:
+                    sbuild += fragment + " "
+                newstr = ''
+                for char in sbuild:
+                    newstr += bin(ord(char)).replace('0b', '').replace('0', 'g').replace('1', 'G')
+                for sendable in [newstr[i:i+1920] for i in range(0, len(newstr), 1920)]:
+                    await self.send_message(message.channel, content=sendable)
+            if fragments[1] == "help":
+                await self.send_message(message.author, content=help_str)
+
     async def on_message(self, message):
         """
         This event triggers on every message received by the bot. Including one's that it sent itself.
         If you wish to have multiple event listeners they can be added in other cogs. All on_message listeners should
         always ignore bots.
         """
+        #print(message.content + " in: " + str(message.channel) + " by: " + str(message.author))
         if message.author.bot:
             return  # ignore all bots
-        await self.process_commands(message)
+        else:
+            await self.process_commands(message)
+            if message.content.lower().lstrip().startswith("!g "):
+                return
+            part_we_care_about = message.content.replace(" ", "").replace("\n","").replace("\r","").lower()
+            g_ratio = float(part_we_care_about.count('g')) / float(len(part_we_care_about))
+            if datetime.datetime.now() > self.suppressed_until:
+                if str(message.channel) == "the-g-channel" or str(message.channel) == "g-channel":
+                    for character in part_we_care_about.lower():
+                        if re.match("[a-f]|[h-z]|[0-9]", character) is not None:
+                            print(str(message.author) + " sent an illegal message!")
+                            await self.delete_message(message)
+                            return
+                    if g_ratio < float(config['character_ratio']):
+                        print (str(message.author) + " sent an illegal message!")
+                        await self.delete_message(message)
+                        return
 
 
 if __name__ == '__main__':
