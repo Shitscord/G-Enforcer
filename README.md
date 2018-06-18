@@ -8,6 +8,6 @@ Should contain the attributes:
 {
   "description":"Whatever you want",
   "token":"Bot user token here",
-  "character_ratio": 0.75 // A float from 0 to 1 that represents what percent of characters in a message must be "G".
+  "character_ratio": 0.75 # A float from 0 to 1 that represents what percent of characters in a message must be "G".
 }
 ```
