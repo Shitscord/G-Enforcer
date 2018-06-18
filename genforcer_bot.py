@@ -1,9 +1,5 @@
-import asyncio
-import datetime
-import json
-import logging
+import asyncio, datetime, json, logging, re
 from pathlib import Path
-import re
 
 import discord
 from discord.ext import commands
@@ -100,7 +96,8 @@ class Bot(commands.Bot):
             await self.process_commands(message)
             if message.content.lower().lstrip().startswith("!g "):
                 return
-            part_we_care_about = message.content.replace(" ", "").replace("\n","").replace("\r","").lower()
+            part_we_care_about = message.content.replace(" ", "").replace("\n","").replace("\r","")\
+                .replace(':regional_indicator_g:',"").lower()
             g_ratio = float(part_we_care_about.count('g')) / float(len(part_we_care_about))
             if datetime.datetime.now() > self.suppressed_until:
                 if str(message.channel) == "the-g-channel" or str(message.channel) == "g-channel":
@@ -109,7 +106,7 @@ class Bot(commands.Bot):
                             print(str(message.author) + " sent an illegal message!")
                             await self.delete_message(message)
                             return
-                    if g_ratio < float(config['character_ratio']):
+                    if g_ratio < float(config['character_ratio']) and len(part_we_care_about) > 1:
                         print (str(message.author) + " sent an illegal message!")
                         await self.delete_message(message)
                         return
